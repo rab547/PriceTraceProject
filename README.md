@@ -1,6 +1,6 @@
 # PriceTraceProject
 
-Current phase: building a basic file-upload web-application to be used in conjunction with ML processing.
+A full-stack web application built with Flask (backend) and React (frontend) that allows users to upload files through a clean UI. On submission, the file is saved to the backend and a pipeline stub function is called with the uploaded filename.
 
 ---
 
@@ -15,6 +15,18 @@ Current phase: building a basic file-upload web-application to be used in conjun
 
 ## Project Structure
 
+```
+PriceTraceProject/
+├── backend/
+│   ├── app.py              # Flask app with /upload endpoint
+│   └── uploads/            # Saved uploaded files
+└── frontend/
+    ├── src/
+    │   └── App.jsx         # React upload UI
+    └── package.json
+```
+
+---
 
 ## Setup & Running
 
@@ -34,7 +46,7 @@ python app.py
 
 The Flask server runs on `http://localhost:5000`.
 
-### Frontend (React)
+### Frontend (React) (Not made yet)
 
 ```bash
 cd frontend
@@ -42,7 +54,7 @@ npm install
 npm run dev
 ```
 
-The React app runs on `http://localhost:5173`.
+The React app runs on `http://localhost:3000`.
 
 ---
 
@@ -56,13 +68,17 @@ Accepts a multipart form upload with a `file` field.
 - Calls `process_file(filename)` — a stub that prints the filename
 - Returns a JSON response with the saved filename
 
-**Success response:**
+**Example response:**
 ```json
-{ "message": "File uploaded successfully", "filename": "example.pdf" }
+{ "message": "File uploaded successfully", "filename": "example.csv" }
 ```
 
-**Error response:**
-```json
-{ "error": "No file provided" }
-```
+---
 
+## Deliverables
+
+- [x] Flask backend with file upload endpoint
+- [x] React frontend with upload UI
+- [x] File saved to designated backend folder on submit
+- [x] Placeholder function called on submission (stub for pipeline)
+- [x] Basic documentation (this file)
