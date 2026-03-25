@@ -1,6 +1,6 @@
 # PriceTraceProject
 
-A full-stack web application built with Flask (backend) and React (frontend) that allows users to upload files through a clean UI. On submission, the file is saved to the backend and a pipeline stub function is called with the uploaded filename.
+Current phase: building a basic file-upload web-application to be used in conjunction with ML processing.
 
 ---
 
@@ -8,33 +8,27 @@ A full-stack web application built with Flask (backend) and React (frontend) tha
 
 1. The user visits the React frontend and selects a file to upload.
 2. On submit, the frontend sends the file to the Flask backend via a `POST /upload` request.
-3. The backend saves the file to a designated `uploads/` folder.
-4. A placeholder pipeline function is called with the filename and prints it — this stub is where future processing logic will go.
+3. The backend saves the file to `backend/uploads/` (auto-created on startup).
+4. A placeholder pipeline function `process_file()` is called with the filename and prints it — this stub is where future ML pipeline processing will go.
 
 ---
 
 ## Project Structure
 
-```
-PriceTraceProject/
-├── backend/
-│   ├── app.py              # Flask app with /upload endpoint
-│   └── uploads/            # Saved uploaded files
-└── frontend/
-    ├── src/
-    │   └── App.jsx         # React upload UI
-    └── package.json
-```
-
----
 
 ## Setup & Running
 
 ### Backend (Flask)
 
 ```bash
-cd backend
+# Activate virtual environment
+venv\Scripts\activate
+
+# Install dependencies
 pip install flask flask-cors
+
+# Run the server
+cd backend
 python app.py
 ```
 
@@ -45,10 +39,10 @@ The Flask server runs on `http://localhost:5000`.
 ```bash
 cd frontend
 npm install
-npm start
+npm run dev
 ```
 
-The React app runs on `http://localhost:3000`.
+The React app runs on `http://localhost:5173`.
 
 ---
 
@@ -62,17 +56,13 @@ Accepts a multipart form upload with a `file` field.
 - Calls `process_file(filename)` — a stub that prints the filename
 - Returns a JSON response with the saved filename
 
-**Example response:**
+**Success response:**
 ```json
-{ "message": "File uploaded successfully", "filename": "example.csv" }
+{ "message": "File uploaded successfully", "filename": "example.pdf" }
 ```
 
----
+**Error response:**
+```json
+{ "error": "No file provided" }
+```
 
-## Deliverables
-
-- [x] Flask backend with file upload endpoint
-- [x] React frontend with upload UI
-- [x] File saved to designated backend folder on submit
-- [x] Placeholder function called on submission (stub for pipeline)
-- [x] Basic documentation (this file)
