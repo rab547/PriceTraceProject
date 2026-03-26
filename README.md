@@ -77,8 +77,4 @@ Accepts a multipart form upload with a `file` field.
 
 ## Deliverables
 
-- [x] Flask backend with file upload endpoint
-- [x] React frontend with upload UI
-- [x] File saved to designated backend folder on submit
-- [x] Placeholder function called on submission (stub for pipeline)
-- [x] Basic documentation (this file)
+- We should finish the vector db integration
