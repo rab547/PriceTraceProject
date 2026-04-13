@@ -11,6 +11,10 @@ __pycache__/
 # Uploads (don't commit user files)
 backend/uploads/
 
+# Local vector DB + model caches
+backend/chroma_data/
+backend/.hf/
+
 # Environment variables
 .env
 
