@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations # type: ignore
 
 import os
 import uuid
@@ -179,7 +179,7 @@ class VectorDB:
                             "source": "crop",
                             "label": det.label,
                             "score": det.score,
-                            "box_xyxy": list(det.box_xyxy),
+                            "box_xyxy": ",".join(str(v) for v in det.box_xyxy),
                         },
                     )
                 )
@@ -245,5 +245,5 @@ class VectorDB:
                     "metadata": meta,
                 }
             )
-
+            
         return {"results": out}

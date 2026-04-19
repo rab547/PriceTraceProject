@@ -2,6 +2,7 @@ import os
 import tempfile
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from werkzeug.utils import secure_filename
 
 from vector_db import VectorDB
 
@@ -41,10 +42,13 @@ def upload_file():
     if "file" not in request.files:
         return jsonify({"error": "No file provided"}), 400
     file = request.files["file"]
-    file_path = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
+    if not file.filename:
+        return jsonify({"error": "No filename provided"}), 400
+    filename = secure_filename(file.filename)
+    file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
     file.save(file_path)
-    indexed = process_file(file.filename)
-    return jsonify({"message": "File uploaded successfully", "filename": file.filename, "index": indexed})
+    indexed = process_file(filename)
+    return jsonify({"message": "File uploaded successfully", "filename": filename, "index": indexed})
 
 
 @app.route("/search", methods=["POST"])
@@ -52,7 +56,9 @@ def search():
     if "file" not in request.files:
         return jsonify({"error": "No file provided"}), 400
     file = request.files["file"]
-    file_path = os.path.join(app.config["UPLOAD_FOLDER"], f"query_{file.filename}")
+    if not file.filename:
+        return jsonify({"error": "No filename provided"}), 400
+    file_path = os.path.join(app.config["UPLOAD_FOLDER"], f"query_{secure_filename(file.filename)}")
     file.save(file_path)
     k = int(request.form.get("k", "5"))
     results = _vdb.search_by_image(file_path, k=k)

@@ -12,7 +12,7 @@ function App() {
     e.preventDefault()
     const formData = new FormData()
     formData.append('file', file)
-    const res = await fetch('http://localhost:5000/upload', {
+    const res = await fetch('http://localhost:5001/upload', {
       method: 'POST',
       body: formData
     })
