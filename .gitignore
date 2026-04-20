@@ -11,6 +11,9 @@ __pycache__/
 # Uploads (don't commit user files)
 backend/uploads/
 
+# Dataset images
+backend/fashion_images/
+
 # Local vector DB + model caches
 backend/chroma_data/
 backend/.hf/
