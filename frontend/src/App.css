@@ -161,6 +161,56 @@
   }
 }
 
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.tab-btn {
+  padding: 8px 20px;
+  border-radius: 6px;
+  border: 2px solid var(--border, #ccc);
+  background: transparent;
+  cursor: pointer;
+  font-size: 15px;
+  transition: border-color 0.2s, background 0.2s;
+
+  &.active {
+    border-color: var(--accent, #646cff);
+    background: var(--accent-bg, #f0f0ff);
+  }
+}
+
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+  width: 100%;
+  max-width: 900px;
+  margin-top: 16px;
+}
+
+.result-card {
+  border: 1px solid var(--border, #ddd);
+  border-radius: 8px;
+  overflow: hidden;
+  text-align: center;
+
+  img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    display: block;
+  }
+}
+
+.similarity {
+  font-size: 13px;
+  padding: 6px 4px;
+  color: var(--text-h, #333);
+}
+
 .ticks {
   position: relative;
   width: 100%;

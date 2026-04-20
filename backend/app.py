@@ -1,6 +1,6 @@
 import os
 import tempfile
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 
@@ -60,9 +60,19 @@ def search():
         return jsonify({"error": "No filename provided"}), 400
     file_path = os.path.join(app.config["UPLOAD_FOLDER"], f"query_{secure_filename(file.filename)}")
     file.save(file_path)
-    k = int(request.form.get("k", "5"))
-    results = _vdb.search_by_image(file_path, k=k)
-    return jsonify(results)
+    max_k = int(request.form.get("k", "10"))
+    min_similarity = float(request.form.get("min_similarity", "0.0"))
+    pairs = _vdb.search(file_path, max_k=max_k, min_similarity=min_similarity)
+    results = [{"image_path": p, "similarity": s} for p, s in pairs]
+    return jsonify({"results": results})
+
+
+@app.route("/image", methods=["GET"])
+def serve_image():
+    path = request.args.get("path", "")
+    if not path or not os.path.isfile(path):
+        return jsonify({"error": "Image not found"}), 404
+    return send_file(path)
 
 
 if __name__ == "__main__":

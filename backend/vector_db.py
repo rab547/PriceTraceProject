@@ -247,3 +247,22 @@ class VectorDB:
             )
             
         return {"results": out}
+
+    def search(
+        self,
+        image_path: str,
+        max_k: int = 5,
+        min_similarity: float = 0.0,
+    ) -> List[Tuple[str, float]]:
+        if not os.path.isfile(image_path):
+            raise FileNotFoundError(f"Image not found: {image_path}")
+
+        raw = self.search_by_image(image_path, k=max_k)
+        results: List[Tuple[str, float]] = []
+        for r in raw["results"]:
+            similarity = 1.0 - r["distance"]
+            if similarity >= min_similarity:
+                results.append((r["metadata"]["image_path"], round(similarity, 4)))
+
+        results.sort(key=lambda x: x[1], reverse=True)
+        return results
