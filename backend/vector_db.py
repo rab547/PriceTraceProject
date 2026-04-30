@@ -121,8 +121,10 @@ class VectorDB:
         *,
         persist_dir: Optional[str] = None,
         collection_name: str = "pricetrace_images",
+        image_root: Optional[str] = None,
     ) -> None:
         self.persist_dir = persist_dir or os.path.join(_BACKEND_DIR, "chroma_data")
+        self.image_root = os.path.abspath(image_root) if image_root else None
         os.makedirs(self.persist_dir, exist_ok=True)
 
         self._client = chromadb.PersistentClient(path=self.persist_dir)
@@ -199,8 +201,14 @@ class VectorDB:
         for _, meta in items:
             _id = uuid.uuid4().hex
             ids.append(_id)
+            abs_path = os.path.abspath(image_path)
+            stored_path = (
+                os.path.relpath(abs_path, self.image_root)
+                if self.image_root
+                else abs_path
+            )
             meta_full = {
-                "image_path": os.path.abspath(image_path),
+                "image_path": stored_path,
                 **meta,
             }
             metadatas.append(meta_full)
@@ -237,6 +245,8 @@ class VectorDB:
             res.get("metadatas", [[]])[0],
             res.get("documents", [[]])[0],
         ):
+            if self.image_root and "image_path" in meta:
+                meta = {**meta, "image_path": os.path.join(self.image_root, meta["image_path"])}
             out.append(
                 {
                     "id": _id,
@@ -262,7 +272,8 @@ class VectorDB:
         for r in raw["results"]:
             similarity = 1.0 - r["distance"]
             if similarity >= min_similarity:
-                results.append((r["metadata"]["image_path"], round(similarity, 4)))
+                path = r["metadata"]["image_path"]
+                results.append((path, round(similarity, 4)))
 
         results.sort(key=lambda x: x[1], reverse=True)
         return results
