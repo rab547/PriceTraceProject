@@ -1,6 +1,6 @@
 # Virtual environment
 venv/
-
+.claude
 # Python
 __pycache__/
 *.pyc

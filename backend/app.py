@@ -3,6 +3,9 @@ import tempfile
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from vector_db import VectorDB
 
@@ -19,7 +22,8 @@ except PermissionError:
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
-_vdb = VectorDB()
+_fashion_images_dir = os.environ.get("FASHION_IMAGES_DIR")
+_vdb = VectorDB(image_root=_fashion_images_dir)
 
 
 def process_file(filename):

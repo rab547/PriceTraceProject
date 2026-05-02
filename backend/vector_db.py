@@ -146,6 +146,58 @@ class VectorDB:
             self._detector = GroundingDinoDetector()
         return self._detector
 
+    def index_images_batch(
+        self,
+        image_paths: List[str],
+    ) -> "tuple[list[str], list[tuple[str, Exception]]]":
+        """Embed and index a list of images in a single CLIP forward pass.
+
+        Returns (indexed_paths, [(failed_path, error), ...]).
+        """
+        loaded: List[tuple] = []
+        errors: List[tuple] = []
+
+        for path in image_paths:
+            try:
+                loaded.append((path, Image.open(path).convert("RGB")))
+            except Exception as exc:
+                errors.append((path, exc))
+
+        if not loaded:
+            return [], errors
+
+        paths = [p for p, _ in loaded]
+        images = [img for _, img in loaded]
+
+        try:
+            embeddings = self._get_embedder().embed_images(images)
+        except Exception as exc:
+            return [], errors + [(p, exc) for p in paths]
+
+        ids: List[str] = []
+        metadatas: List[Dict[str, Any]] = []
+        documents: List[str] = []
+
+        for path in paths:
+            abs_path = os.path.abspath(path)
+            stored_path = (
+                os.path.relpath(abs_path, self.image_root)
+                if self.image_root
+                else abs_path
+            )
+            ids.append(uuid.uuid4().hex)
+            metadatas.append({"image_path": stored_path, "source": "full_image"})
+            documents.append("image")
+
+        self._collection.add(
+            ids=ids,
+            embeddings=embeddings,
+            metadatas=metadatas,
+            documents=documents,
+        )
+
+        return paths, errors
+
     def index_image(
         self,
         image_path: str,

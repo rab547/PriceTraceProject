@@ -1,15 +1,8 @@
 # PriceTraceProject
 
-A full-stack web application built with Flask (backend) and React (frontend) that allows users to upload files through a clean UI. On submission, the file is saved to the backend and a pipeline stub function is called with the uploaded filename.
+A full-stack web application for visual fashion search. Upload a photo of a clothing item and get visually similar results back, powered by CLIP embeddings and a local ChromaDB vector index.
 
----
-
-## How It Works
-
-1. The user visits the React frontend and selects a file to upload.
-2. On submit, the frontend sends the file to the Flask backend via a `POST /upload` request.
-3. The backend saves the file to `backend/uploads/` (auto-created on startup).
-4. A placeholder pipeline function `process_file()` is called with the filename and prints it — this stub is where future ML pipeline processing will go.
+**Stack:** Flask · React · CLIP (ViT-B/32) · ChromaDB · optional Grounding DINO
 
 ---
 
@@ -18,43 +11,89 @@ A full-stack web application built with Flask (backend) and React (frontend) tha
 ```
 PriceTraceProject/
 ├── backend/
-│   ├── app.py              # Flask app with /upload endpoint
-│   └── uploads/            # Saved uploaded files
+│   ├── app.py                  # Flask API
+│   ├── vector_db.py            # CLIP embeddings + ChromaDB wrapper
+│   ├── populate_db.py          # Bulk-index a dataset folder
+│   ├── remap_paths.py          # Update image paths in the DB if dataset moves
+│   ├── requirements.txt
+│   ├── .env.example            # Copy to .env and fill in your dataset path
+│   ├── chroma_data/            # Local vector DB (gitignored)
+│   └── uploads/                # Temp query images (gitignored)
 └── frontend/
     ├── src/
-    │   └── App.jsx         # React upload UI
+    │   └── App.jsx
     └── package.json
 ```
 
 ---
 
-## Setup & Running
+## First-Time Setup
 
-### Backend (Flask)
+### 1. Python environment
 
-```bash
-# Activate virtual environment
-venv\Scripts\activate
+```powershell
+# From the project root
+.\venv\Scripts\activate
+pip install -r backend\requirements.txt
+```
 
-# Install dependencies
-pip install flask flask-cors
+### 2. Dataset
 
-# Run the server
+This project uses the [DeepFashion](http://mmlab.ie.cuhk.edu.hk/projects/DeepFashion.html) dataset.
+Place it anywhere on your machine, then create `backend\.env` from the example:
+
+```powershell
+copy backend\.env.example backend\.env
+```
+
+Edit `.env` and set your path:
+
+```
+FASHION_IMAGES_DIR=C:\path\to\your\deepFashion
+```
+
+### 3. Build the vector index
+
+```powershell
 cd backend
+
+# Recommended: shop images only (~45K images, ~1-2 hours on CPU)
+python populate_db.py "C:\path\to\your\deepFashion" --shop-only
+
+# Or index everything (~239K images, runs overnight)
+python populate_db.py "C:\path\to\your\deepFashion"
+```
+
+The script is resumable — if interrupted, re-run the same command and it picks up where it left off.
+
+On first run, Hugging Face will download CLIP model weights to `backend/.hf/` (~600 MB).
+
+### 4. Run the backend
+
+```powershell
+# From backend/
 python app.py
 ```
 
-The Flask server runs on `http://localhost:5000`.
+Server runs on `http://localhost:5001` by default. Set `PORT` to override.
 
-### Frontend (React) (Not made yet)
+### 5. Run the frontend
 
-```bash
+```powershell
 cd frontend
 npm install
 npm run dev
 ```
 
-The React app runs on `http://localhost:3000`.
+---
+
+## Setup for Collaborators (skip re-indexing)
+
+If someone shares the pre-built `chroma_data/` folder (or `chroma_data.zip`):
+
+1. Unzip into `backend/chroma_data/`
+2. Get the DeepFashion dataset and set `FASHION_IMAGES_DIR` in `backend/.env`
+3. Run `python app.py` — no indexing needed
 
 ---
 
@@ -62,19 +101,42 @@ The React app runs on `http://localhost:3000`.
 
 ### `POST /upload`
 
-Accepts a multipart form upload with a `file` field.
+Index an image into the vector DB.
 
-- Saves the file to `backend/uploads/`
-- Calls `process_file(filename)` — a stub that prints the filename
-- Returns a JSON response with the saved filename
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `file` | file | required | Image to index |
+| `use_dino` | bool | `true` | Use Grounding DINO to detect and crop objects before indexing |
+| `prompt` | string | built-in | DINO detection prompt (dot-separated class names) |
 
-**Example response:**
-```json
-{ "message": "File uploaded successfully", "filename": "example.csv" }
-```
+### `POST /search`
+
+Find visually similar images already in the DB.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `file` | file | required | Query image |
+| `k` | int | `10` | Number of results |
+| `min_similarity` | float | `0.0` | Minimum cosine similarity threshold |
+
+Returns a ranked list of `{ image_path, similarity }` pairs.
+
+### `GET /image?path=<path>`
+
+Serve an image by its stored path (used by the frontend to display results).
 
 ---
 
-## Deliverables
+## Utilities
 
-- We should finish the vector db integration
+**Re-index after moving your dataset:**
+
+```powershell
+python remap_paths.py "C:\old\path\to\deepFashion" "C:\new\path\to\deepFashion"
+```
+
+**Batch size tuning** (use larger values with a GPU):
+
+```powershell
+python populate_db.py "C:\path\to\deepFashion" --shop-only --batch-size=64
+```

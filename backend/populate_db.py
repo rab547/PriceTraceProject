@@ -2,21 +2,27 @@
 Bulk-index a directory of images into the PriceTrace ChromaDB.
 
 Usage:
-    python populate_db.py /path/to/deepfashion/images
+    python populate_db.py <image_directory> [--shop-only] [--batch-size=N]
 
-Each image is embedded with CLIP (no Grounding DINO) and stored with its
-absolute file path in metadata so the frontend can retrieve it later.
+Images are CLIP-embedded in batches for speed (default batch size: 32).
+Re-running resumes from where it left off via the progress file.
 
-Re-running the script resumes from where it left off — already-indexed
-images are skipped based on the progress file in chroma_data/.
+Flags:
+    --shop-only       Only index shop_*.jpg files (product shots, ~45K for
+                      DeepFashion vs 239K total). Recommended for price tracking.
+    --batch-size=N    Images per CLIP forward pass (default 32; use 64+ with GPU).
+    --rebuild-progress  Seed the progress file from existing ChromaDB entries
+                        so you can resume without re-indexing.
 """
 
 import os
 import sys
+import time
 
 from vector_db import VectorDB
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
+DEFAULT_BATCH_SIZE = 32
 
 _BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
 PROGRESS_FILE = os.path.join(_BACKEND_DIR, "chroma_data", "populate_progress.txt")
@@ -29,18 +35,22 @@ def load_progress() -> set:
         return {line.strip() for line in f if line.strip()}
 
 
-def mark_done(path: str) -> None:
+def mark_done(paths) -> None:
     os.makedirs(os.path.dirname(PROGRESS_FILE), exist_ok=True)
     with open(PROGRESS_FILE, "a") as f:
-        f.write(path + "\n")
+        for path in paths:
+            f.write(path + "\n")
 
 
-def collect_images(root: str):
+def collect_images(root: str, shop_only: bool = False):
     paths = []
     for dirpath, _, filenames in os.walk(root):
         for fname in filenames:
-            if os.path.splitext(fname)[1].lower() in IMAGE_EXTENSIONS:
-                paths.append(os.path.join(dirpath, fname))
+            if os.path.splitext(fname)[1].lower() not in IMAGE_EXTENSIONS:
+                continue
+            if shop_only and not fname.lower().startswith("shop"):
+                continue
+            paths.append(os.path.join(dirpath, fname))
     return paths
 
 
@@ -76,11 +86,27 @@ def rebuild_progress(root: str) -> None:
     print("You can now run the script normally to resume indexing.")
 
 
+def fmt_eta(seconds: float) -> str:
+    if seconds < 60:
+        return f"{seconds:.0f}s"
+    if seconds < 3600:
+        return f"{seconds/60:.0f}m"
+    return f"{seconds/3600:.1f}h"
+
+
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    raw_args = sys.argv[1:]
+    shop_only = "--shop-only" in raw_args
+
+    batch_size = DEFAULT_BATCH_SIZE
+    for arg in raw_args:
+        if arg.startswith("--batch-size="):
+            batch_size = int(arg.split("=", 1)[1])
+
+    args = [a for a in raw_args if not a.startswith("--")]
 
     if not args:
-        print("Usage: python populate_db.py <image_directory> [--rebuild-progress]")
+        print("Usage: python populate_db.py <image_directory> [--shop-only] [--batch-size=N]")
         sys.exit(1)
 
     root = args[0]
@@ -88,12 +114,12 @@ def main():
         print(f"Error: '{root}' is not a directory.")
         sys.exit(1)
 
-    if "--rebuild-progress" in sys.argv:
+    if "--rebuild-progress" in raw_args:
         rebuild_progress(root)
         sys.exit(0)
 
-    print(f"Scanning {root} for images...")
-    image_paths = collect_images(root)
+    print(f"Scanning {root} for images{' (shop only)' if shop_only else ''}...")
+    image_paths = collect_images(root, shop_only=shop_only)
     total = len(image_paths)
 
     done = load_progress()
@@ -101,33 +127,45 @@ def main():
     skipped = total - len(remaining)
 
     if skipped:
-        print(f"Resuming: {skipped} already indexed, {len(remaining)} remaining.\n")
+        print(f"Resuming: {skipped} already indexed, {len(remaining)} remaining.")
     else:
-        print(f"Found {total} images. Starting indexing...\n")
+        print(f"Found {total} images.")
+
+    print(f"Batch size: {batch_size}\n")
+
+    if not remaining:
+        print("Nothing to do.")
+        sys.exit(0)
 
     vdb = VectorDB(image_root=root)
     indexed = 0
     errors = 0
     n = len(remaining)
+    start = time.time()
+    report_every = max(1, (n // batch_size) // 20) * batch_size  # ~20 progress lines
 
-    for i, path in enumerate(remaining, start=1):
-        abs_path = os.path.abspath(path)
-        try:
-            vdb.index_image(abs_path, use_grounding_dino=False)
-            indexed += 1
-            mark_done(abs_path)
-        except Exception as e:
-            errors += 1
-            print(f"  [ERROR] {path}: {e}")
+    for i in range(0, n, batch_size):
+        batch = remaining[i:i + batch_size]
+        indexed_paths, batch_errors = vdb.index_images_batch(batch)
 
-        if i % 100 == 0 or i == n:
-            print(f"  [{i}/{n}] processed — {indexed} indexed, {errors} errors")
+        mark_done([os.path.abspath(p) for p in indexed_paths])
+        indexed += len(indexed_paths)
+        errors += len(batch_errors)
 
-    print(f"\nDone.")
-    print(f"  Total processed : {n}")
-    print(f"  Successfully indexed : {indexed}")
-    print(f"  Errors               : {errors}")
-    print(f"  Embedding dimensions : 512 (CLIP ViT-B/32)")
+        for path, err in batch_errors:
+            print(f"  [ERROR] {os.path.basename(path)}: {err}")
+
+        done_count = i + len(batch)
+        if done_count % report_every == 0 or done_count >= n:
+            elapsed = time.time() - start
+            rate = indexed / elapsed if elapsed > 0 else 0
+            eta = (n - done_count) / rate if rate > 0 else 0
+            print(f"  [{done_count}/{n}]  {rate:.1f} img/s  ETA {fmt_eta(eta)}", flush=True)
+
+    elapsed = time.time() - start
+    print(f"\nDone in {fmt_eta(elapsed)}.")
+    print(f"  Indexed : {indexed}")
+    print(f"  Errors  : {errors}")
 
 
 if __name__ == "__main__":
