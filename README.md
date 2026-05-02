@@ -140,3 +140,19 @@ python remap_paths.py "C:\old\path\to\deepFashion" "C:\new\path\to\deepFashion"
 ```powershell
 python populate_db.py "C:\path\to\deepFashion" --shop-only --batch-size=64
 ```
+
+**Export only the indexed images for sharing:**
+
+After indexing, copy just the images referenced in the DB to a new folder so
+collaborators don't need the full dataset:
+
+```powershell
+cd backend
+python export_indexed_images.py "C:\path\to\output\indexed_images"
+
+# Then zip and share alongside chroma_data.zip
+Compress-Archive -Path "C:\path\to\output\indexed_images" -DestinationPath "C:\path\to\output\indexed_images.zip"
+```
+
+Collaborators unzip it, set `FASHION_IMAGES_DIR` to that folder, and paths resolve
+correctly since the internal folder structure is preserved.
