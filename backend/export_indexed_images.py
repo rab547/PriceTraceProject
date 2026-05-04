@@ -14,6 +14,7 @@ Example:
 import os
 import sys
 import shutil
+import time
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -37,9 +38,19 @@ def main():
     client = chromadb.PersistentClient(path=os.path.join(_BACKEND_DIR, "chroma_data"))
     col = client.get_collection("pricetrace_images")
 
-    print(f"Reading {col.count()} entries from ChromaDB...")
-    result = col.get(include=["metadatas"])
-    rel_paths = {m["image_path"] for m in result["metadatas"] if m.get("image_path")}
+    total = col.count()
+    print(f"Reading {total} entries from ChromaDB...")
+
+    rel_paths = set()
+    batch_size = 5000
+    offset = 0
+    while offset < total:
+        result = col.get(include=["metadatas"], limit=batch_size, offset=offset)
+        for m in result["metadatas"]:
+            if m.get("image_path"):
+                rel_paths.add(m["image_path"])
+        offset += batch_size
+        print(f"  {min(offset, total)}/{total} read...", end="\r")
 
     print(f"Found {len(rel_paths)} unique images. Copying to {output_dir} ...\n")
     os.makedirs(output_dir, exist_ok=True)
@@ -56,8 +67,16 @@ def main():
             continue
 
         os.makedirs(os.path.dirname(dst), exist_ok=True)
-        shutil.copy2(src, dst)
-        copied += 1
+        for attempt in range(4):
+            try:
+                shutil.copy2(src, dst)
+                copied += 1
+                break
+            except PermissionError:
+                if attempt < 3:
+                    time.sleep(1)
+                else:
+                    missing += 1
 
         if i % 5000 == 0 or i == len(rel_paths):
             print(f"  [{i}/{len(rel_paths)}] {copied} copied, {missing} missing")
