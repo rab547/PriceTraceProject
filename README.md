@@ -89,11 +89,28 @@ npm run dev
 
 ## Setup for Collaborators (skip re-indexing)
 
-If someone shares the pre-built `chroma_data/` folder (or `chroma_data.zip`):
+You'll need two files shared separately (too large for git):
+- `chroma_data.zip` — the pre-built vector DB
+- `deepFashion.zip` — the image dataset
 
-1. Unzip into `backend/chroma_data/`
-2. Get the DeepFashion dataset and set `FASHION_IMAGES_DIR` in `backend/.env`
-3. Run `python app.py` — no indexing needed
+1. Unzip `chroma_data.zip` into `backend/chroma_data/`
+2. Unzip `deepFashion.zip` anywhere on your machine
+3. Copy `backend\.env.example` to `backend\.env` and set the path:
+   ```
+   FASHION_IMAGES_DIR=C:\path\to\your\deepFashion
+   ```
+4. Activate the venv and install dependencies:
+   ```powershell
+   .\venv\Scripts\activate
+   pip install -r backend\requirements.txt
+   ```
+5. Run the backend:
+   ```powershell
+   cd backend
+   python app.py
+   ```
+
+No indexing needed — the pre-built DB is ready to use.
 
 ---
 
